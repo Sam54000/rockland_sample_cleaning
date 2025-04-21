@@ -1,0 +1,21 @@
+,Labels,TimeStamps
+0,['Offset CheckerboardStart'],1706285234.8469758
+1,['Onset Block1Off'],1706285252.477872
+2,['Keypress'],1706285255.064544
+3,['Keypress'],1706285258.6835895
+4,['Offset Block1Off'],1706285272.4960518
+5,['Onset Block1On'],1706285272.5098681
+6,['Keypress'],1706285273.9802692
+7,['Offset Block1On'],1706285292.527176
+8,['Onset Block2Off'],1706285292.5459676
+9,['Offset Block2Off'],1706285312.5632992
+10,['Onset Block2On'],1706285312.576846
+11,['Keypress'],1706285313.6444142
+12,['Offset Block2On'],1706285332.5940483
+13,['Onset Block3Off'],1706285332.610744
+14,['Offset Block3Off'],1706285352.628404
+15,['Onset Block3On'],1706285352.6444213
+16,['Keypress'],1706285354.063546
+17,['Offset Block3On'],1706285372.6632416
+18,['Onset CheckerboardEnd'],1706285372.6804283
+19,['Offset CheckerboardEnd'],1706285376.2956445
