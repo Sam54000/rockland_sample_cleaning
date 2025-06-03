@@ -299,11 +299,18 @@ def full_pipeline(file: dict) -> str:
     bv_filename = (
         base / f"raw/sub-{file["subject"]}_ses-{file["session"]}_run-{file["run"]}_eeg.vhdr"
     )
+
+    bv_alt_filename = (
+        base / f"raw/sub-{file["subject"]}_ses-{file["session"]}_run-{file["run"]}.vhdr"
+    )
+    if not bv_filename.is_file():
+        bv_filename = bv_alt_filename
+        print(f"\n\n######### Using alternative filename: {bv_filename}\n\n")
     try:
         raw_bv = mne.io.read_raw_brainvision(bv_filename)
     except Exception as e:
         return str(e)
-
+        #raise e
     saving_bids_path = mne_bids.BIDSPath(
         root=file["root"]/ "derivatives", 
         subject=file["subject"], 
@@ -312,8 +319,11 @@ def full_pipeline(file: dict) -> str:
         task=file["task"],
         run=file["run"],
     )
+
     theoretical_fname = Path(os.fspath(saving_bids_path.fpath))
+    
     print(f"Theoretical fname:{theoretical_fname}")
+    saving_bids_path.mkdir()
     try:
         if theoretical_fname.is_file():
             return "Already Done"
@@ -367,12 +377,13 @@ if __name__ == "__main__":
               "run":[],
               "message":[]
     }
-    for idx, file in selection.database.iloc[:500,:].iterrows():
+    for idx, file in selection.database.iterrows():
         print(f"=== PROCESSING {file['filename']} ===")
         report["subject"].append(file["subject"])
         report["session"].append(file["session"])
         report["task"].append(file["task"])
         report["run"].append(file["run"])
+        
         try:
             message = full_pipeline(file)
             report["message"].append(message)
@@ -381,6 +392,6 @@ if __name__ == "__main__":
             continue
 
     report_df = pd.DataFrame(report)
-    report_df.to_csv(root / "cleaning_report.tsv", sep = "\t", index = False)
+    report_df.to_csv(root / "cleaning_report_2.tsv", sep = "\t", index = False)
 
 # %%

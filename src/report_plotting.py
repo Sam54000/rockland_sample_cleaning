@@ -314,7 +314,7 @@ def read_raw_xdf(streams_dict: dict) -> mne.io.RawArray:
     raw.set_meas_date(dt_utc)
     return raw
 
-def calculate_psd(raw, fmin=1, fmax=50, n_fft=2048, n_overlap=0, n_jobs=1):
+def calculate_psd(raw, fmin=1, fmax=50, n_overlap=0, n_jobs=-1):
     """Calculate power spectral density (PSD) from raw EEG data.
     
     Computes the PSD for all EEG channels using Welch's method and
@@ -324,7 +324,6 @@ def calculate_psd(raw, fmin=1, fmax=50, n_fft=2048, n_overlap=0, n_jobs=1):
         raw (mne.io.Raw): MNE Raw object containing EEG data
         fmin (float): Minimum frequency to include in the PSD
         fmax (float): Maximum frequency to include in the PSD
-        n_fft (int): Number of points in the FFT
         n_overlap (int): Number of points to overlap between segments
         n_jobs (int): Number of jobs for parallel processing
         
@@ -337,14 +336,24 @@ def calculate_psd(raw, fmin=1, fmax=50, n_fft=2048, n_overlap=0, n_jobs=1):
     picks = mne.pick_types(raw.info, eeg=True, exclude='bads')
     
     # Calculate PSD using Welch's method
-    psds = raw.compute_psd(fmin=fmin, fmax=fmax, n_fft=n_fft, n_overlap=n_overlap, n_jobs=n_jobs, picks=picks)
+    raw.filter(l_freq=0, h_freq=100)
+    if raw.info["sfreq"] > 250:
+        raw.resample(250)
+    
+    psds = raw.compute_psd(
+        fmin=fmin,
+        fmax=fmax, 
+        n_overlap=n_overlap, 
+        n_jobs=n_jobs, 
+        picks=picks
+        )
     
     # Convert power to dB
     psds_db = 10 * np.log10(psds.get_data())
     
     return psds.freqs, psds_db
 
-def plot_single_comparison_psd(before_raw, after_raw, fmin=1, fmax=50, n_fft=2048, title=None):
+def plot_single_comparison_psd(before_raw, after_raw, fmin=1, fmax=50, title=None):
     """Plot comparison of PSD before and after cleaning for a single recording.
     
     Creates a plot showing the mean and standard deviation of power spectral density
@@ -356,15 +365,14 @@ def plot_single_comparison_psd(before_raw, after_raw, fmin=1, fmax=50, n_fft=204
         after_raw (mne.io.Raw): Raw EEG data after cleaning
         fmin (float): Minimum frequency to include in the PSD
         fmax (float): Maximum frequency to include in the PSD
-        n_fft (int): Number of points in the FFT
         title (str, optional): Plot title
         
     Returns:
         matplotlib.figure.Figure: The created figure object
     """
     # Calculate PSDs
-    freqs_before, psds_before = calculate_psd(before_raw, fmin=fmin, fmax=fmax, n_fft=n_fft)
-    freqs_after, psds_after = calculate_psd(after_raw, fmin=fmin, fmax=fmax, n_fft=n_fft)
+    freqs_before, psds_before = calculate_psd(before_raw, fmin=fmin, fmax=fmax)
+    freqs_after, psds_after = calculate_psd(after_raw, fmin=fmin, fmax=fmax)
     
     # Calculate mean and std across channels
     mean_before = np.mean(psds_before, axis=0)
@@ -405,7 +413,13 @@ def plot_single_comparison_psd(before_raw, after_raw, fmin=1, fmax=50, n_fft=204
     plt.tight_layout()
     plt.show()
 
-def plot_multi_comparison_psd(before_after_pairs, fmin=1, fmax=50, n_fft=2048, title=None, show=True):
+def plot_multi_comparison_psd(
+    before_after_pairs, 
+    fmin=1,
+    fmax=50, 
+    title=None, 
+    ax=None,
+    ):
     """Plot average PSD comparison across multiple recordings.
     
     Creates a plot showing the mean and standard deviation of power spectral density
@@ -416,9 +430,8 @@ def plot_multi_comparison_psd(before_after_pairs, fmin=1, fmax=50, n_fft=2048, t
         before_after_pairs (list): List of tuples (before_raw, after_raw) for multiple recordings
         fmin (float): Minimum frequency to include in the PSD
         fmax (float): Maximum frequency to include in the PSD
-        n_fft (int): Number of points in the FFT
         title (str, optional): Plot title
-        show (bool): Whether to display the plot immediately
+        ax (matplotlib.axes.Axes, optional): Axes object to plot on
         
     Returns:
         tuple: (figure, axes) matplotlib objects for further customization
@@ -430,8 +443,8 @@ def plot_multi_comparison_psd(before_after_pairs, fmin=1, fmax=50, n_fft=2048, t
     # Process each recording pair
     for before_raw, after_raw in before_after_pairs:
         # Calculate PSDs
-        freqs_before, psds_before = calculate_psd(before_raw, fmin=fmin, fmax=fmax, n_fft=n_fft)
-        freqs_after, psds_after = calculate_psd(after_raw, fmin=fmin, fmax=fmax, n_fft=n_fft)
+        freqs_before, psds_before = calculate_psd(before_raw, fmin=fmin, fmax=fmax)
+        freqs_after, psds_after = calculate_psd(after_raw, fmin=fmin, fmax=fmax)
         
         # Store frequency for later use
         if freqs is None:
@@ -451,9 +464,6 @@ def plot_multi_comparison_psd(before_after_pairs, fmin=1, fmax=50, n_fft=2048, t
     
     mean_after = np.mean(all_after_psds, axis=0)
     std_after = np.std(all_after_psds, axis=0)
-    
-    # Create plot
-    fig, ax = plt.subplots(figsize=(12, 6))
     
     # Plot before cleaning
     ax.fill_between(
@@ -486,9 +496,7 @@ def plot_multi_comparison_psd(before_after_pairs, fmin=1, fmax=50, n_fft=2048, t
     ax.grid(True)
     ax.set_title(title)
     plt.tight_layout()
-    if show:
-        plt.show()
-    return fig, ax
+    return ax
 
 def get_before_after_pairs(bids_db, num_recordings=5, random_seed=None):
     """Get pairs of EEG recordings before and after cleaning.
@@ -512,6 +520,7 @@ def get_before_after_pairs(bids_db, num_recordings=5, random_seed=None):
     random_indices = np.random.choice(bids_db.index, size=min(num_recordings, len(bids_db)), replace=False)
     
     pairs = []
+    max_times = []
     for idx in random_indices:
         # Get cleaned data
         after_cleaning = mne.io.read_raw(bids_db.loc[idx]["filename"], preload=True)
@@ -524,10 +533,90 @@ def get_before_after_pairs(bids_db, num_recordings=5, random_seed=None):
         before_cleaning_path = bids_db.loc[idx]["root"].parent / subject / session / "lsl" / f"{subject}_{session}_{task}_{run}_lsl.xdf.gz"
         before_streams = extract_streams(before_cleaning_path)
         before_cleaning_raw = read_raw_xdf(before_streams)
-        
+        max_times.append(before_cleaning_raw.times[-1])
         pairs.append((before_cleaning_raw, after_cleaning))
+    
+    min_time = np.floor(min(max_times))
+    for pair in pairs:
+        pair[0].crop(tmin = 0, tmax = min_time)
+        pair[1].crop(tmin = 0, tmax = min_time)
         
     return pairs
+
+def create_combined_figure(pairs, tsv_files, task, num_recordings):
+    """Create a combined figure with PSD comparison and average impedance plots.
+    
+    Args:
+        pairs (list): List of (before_raw, after_raw) tuples for PSD comparison
+        tsv_files (list): List of paths to TSV files containing impedance data
+        task (str): Task name for plot titles
+        num_recordings (int): Number of recordings used for PSD comparison
+        
+    Returns:
+        matplotlib.figure.Figure: Combined figure with both plots
+    """
+    # Create figure with two subplots side by side
+    fig = plt.figure(figsize=(20, 8))
+    
+    # Left subplot - PSD comparison
+    ax1 = fig.add_subplot(1, 2, 1)
+    
+    # Calculate PSDs for all pairs
+    all_before_psds = []
+    all_after_psds = []
+    freqs = None
+    
+    plot_multi_comparison_psd(pairs, fmin=1, fmax=50, title=f"PSD Comparison: {task}", ax=ax1)
+    
+    # Right side - Impedance plot
+    ax2 = fig.add_subplot(1, 2, 2)
+    
+    # Calculate average impedances
+    average_impedances = compute_average_impedance(tsv_files)
+    
+    # Get montage and positions for impedance plot
+    montage = mne.channels.make_standard_montage('easycap-M1')
+    ch_names = montage.ch_names
+
+    # Filter montage positions for available impedances
+    valid_ch_names = [ch for ch in ch_names if ch in average_impedances.index]
+    positions = np.array([montage.get_positions()['ch_pos'][ch][:2] for ch in valid_ch_names])
+
+    impedances = average_impedances.loc[valid_ch_names].values
+
+    cmap = plt.get_cmap('jet')
+    norm = plt.Normalize(vmin=0, vmax=50)
+    colors = cmap(norm(impedances))
+
+    fake_info = mne.create_info(ch_names=valid_ch_names, sfreq=1, ch_types='eeg')
+    fake_info.set_montage(montage)
+
+    _plot_sensors_2d(
+        positions,
+        fake_info,
+        to_sphere=True,
+        picks=None,
+        colors=colors,
+        bads=[],
+        ch_names=valid_ch_names,
+        title=f"Average Impedance: {task}",
+        show_names=True,
+        ax=ax2,
+        show=False,
+        kind='topomap',
+        block=False,
+        sphere=None,
+        pointsize=100,
+        linewidth=0
+    )
+
+    # Add colorbar for impedance plot
+    cbar_ax = fig.add_axes([0.92, 0.15, 0.02, 0.7])  # [left, bottom, width, height]
+    cb = plt.colorbar(plt.cm.ScalarMappable(norm=norm, cmap=cmap), cax=cbar_ax)
+    cb.set_label('Average Impedance (kΩ)')
+    
+    plt.tight_layout()
+    return fig
 
 if __name__ == "__main__":
 
@@ -550,16 +639,6 @@ if __name__ == "__main__":
             sub_saving_path = saving_path / task
             sub_saving_path.mkdir(parents=True, exist_ok=True)
             
-            fig, ax = plot_multi_comparison_psd(
-                pairs,
-                fmin=1,
-                fmax=50,
-                title=f"Average PSD Comparison: Before vs After Cleaning ({task} for {num_recordings} subjects)",
-                show=False
-                )
-            fig.savefig(sub_saving_path / f"PSD_comparison_{task}.png")
-            pdf.savefig(fig)
-
             channels_selection = architecture.select(
                 task = task,
                 suffix = "channels",
@@ -567,16 +646,11 @@ if __name__ == "__main__":
                 )
 
             tsv_files = channels_selection.database["filename"].values
-            average_impedances = compute_average_impedance(tsv_files)
-            fig, ax = plot_average_impedance(
-                average_impedances, 
-                vmin=0, 
-                vmax=50,
-                title=f"Average Impedance: {task}",
-                show=False
-                )
-            fig.savefig(sub_saving_path / f"Average_impedance_{task}.png")
-            pdf.savefig(fig)
+            
+            # Create and save the combined figure
+            combined_fig = create_combined_figure(pairs, tsv_files, task, num_recordings)
+            combined_fig.savefig(sub_saving_path / f"Combined_PSD_Impedance_{task}.png")
+            pdf.savefig(combined_fig)
             boolean_counts = load_boolean_counts(tsv_files, BOOLEAN_COLUMNS)
             fig, ax = plot_boolean_counts(
                 boolean_counts, 
