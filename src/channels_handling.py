@@ -1,8 +1,52 @@
 import os
 import mne
-import eeg_research.preprocessing.tools.utils as utils
 import numpy as np
 import pandas as pd
+
+def find_real_channel_name(raw: mne.io.Raw, name: str = "ecg") -> list:
+    """Find the name as it is in the raw object.
+
+    Channel names vary across different EEG systems and manufacturers. It varies
+    in terms of capitalization, spacing, and special characters. This function
+    finds the real name of the channel in the raw object.
+
+    Args:
+        raw (mne.io.Raw): The mne Raw object
+        name (str): The name of the channel to find in lower case.
+
+    Returns:
+        str: The real name of the channel in the raw object.
+    """
+    channel_found = list()
+    for ch_name in raw.info["ch_names"]:
+        if name.lower() in ch_name.lower():
+            channel_found.append(ch_name)
+    return channel_found
+
+def map_channel_type(raw: mne.io.Raw) -> dict:
+    """Find and map into MNE type the ECG and EOG channels.
+
+    Args:
+        raw (mne.io.Raw): MNE raw object
+
+    Returns:
+        dict: dictionary of channel type to map into `raw.set_channel_types` method
+    """
+    channels_map = dict()
+    for ch_type in ["ecg", "eog"]:
+        ch_name_in_raw = find_real_channel_name(raw, ch_type)
+        if ch_name_in_raw:
+            if len(ch_name_in_raw) == 1:
+                channels_map.update({ch_name_in_raw[0]: ch_type})
+            elif len(ch_name_in_raw) > 1:
+                for name in ch_name_in_raw:
+                    channels_map.update({name: ch_type})
+        else:
+            print(f"No {ch_type.upper()} channel found.")
+            if ch_type == "eog":
+                print("Fp1 and Fp2 will be used for EOG signal detection")
+
+    return channels_map
 
 def all_conditions_met_on(chan: dict) -> bool:
     """Check if a channel has all required fields populated.
@@ -75,8 +119,8 @@ def set_channel_montage(raw_bv) -> tuple:
             - montage (mne.channels.montage): The applied electrode montage
     """
     montage = mne.channels.make_standard_montage("easycap-M1")
-    channel_map = utils.map_channel_type(raw_bv)
-    utils.set_channel_types(raw_bv, channel_map)
+    channel_map = map_channel_type(raw_bv)
+    raw_bv.set_channel_types(channel_map)
     raw_bv.set_montage(montage, on_missing="warn")
     return raw_bv, montage
 
