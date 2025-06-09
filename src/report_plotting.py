@@ -620,7 +620,7 @@ def create_combined_figure(pairs, tsv_files, task, num_recordings):
 
 if __name__ == "__main__":
 
-    root = Path("/data2/Projects/NKI_RS2/MoBI/derivatives")
+    root = Path("/Users/samuel/Desktop/RS_2_dev/derivatives")
     architecture = BidsArchitecture(
         root = root,
         )
@@ -628,7 +628,7 @@ if __name__ == "__main__":
     saving_path = root / "figures"
     saving_path.mkdir(parents=True, exist_ok=True)
     with PdfPages(saving_path / "report.pdf") as pdf:
-        for task in architecture.tasks:
+        for task in architecture.tasks[:3]:
             selection = architecture.select(task = task,
                                             suffix = "eeg",
                                             extension = ".edf")
