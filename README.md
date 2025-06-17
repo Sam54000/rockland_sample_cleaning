@@ -9,8 +9,8 @@ manager. I personally use [Anaconda](https://www.anaconda.com/download).
 
 
 ## Required packages
-1. [poetry](https://python-poetry.org/docs/#installation)
-2. [MNE](https://mne.tools/stable/install/manual_install.html#manual-install) (if it is not already done)
+1. [MNE](https://mne.tools/stable/install/manual_install.html#manual-install) (if it is not already done)
+2. [poetry](https://python-poetry.org/docs/#installation)
 When following their instruction you will create a virtual environment named `mne` (or the name you chose)
 3. In the same virtual environment install [bids_explorer](https://pypi.org/project/bids_explorer/)
 
@@ -20,7 +20,7 @@ When following their instruction you will create a virtual environment named `mn
 2. In your terminal make sure you are within the desired directory (`cd <myprojects>` 
 replace `<myproject>` by the name of the folder you created for this specific project)
 3. 
-4. Clone this repository `git clone git@github.com:Sam54000/rockland_sample_cleaning.git`
+4. 
 5. Go to the cloned repository `cd rockland_sample_cleaning`
 6. Run `poetry install`
 

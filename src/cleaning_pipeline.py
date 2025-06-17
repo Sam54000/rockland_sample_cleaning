@@ -37,7 +37,6 @@ import mne_bids
 import channels_handling as ch
 import pandas as pd
 import bids_explorer.architecture as arch
-import eeg_research.preprocessing.tools.utils as utils
 
 import pyxdf
 
